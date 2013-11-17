@@ -3,13 +3,16 @@
 %----------------------------------------------------------------%
 :-module(prelude_,[id/2,const/3,compose/4,flip/4,'$'/3,until/4,
 		  map/3,append/3,filter/3,head/2,last/2,tail/2,
-	          init/2,null/1,len/2,nth/3,reverse/2,foldl/4,
-	          foldl1/3,foldr/4,foldr1/3,scanl/4,scanl1/3,
-	          scanr/4,scanr1/3,iterate/3,repeat/2,replicate/3,
-		  replicate_/3,cycle/2,take/3,drop/3,splitAt/4,
-		  takeWhile/3,dropWhile/3,span/4,break/4,elem/2,
-		  notElem/2,lookup/3,zip/3,zip3/4,zipWith/4,
-		  zipWith3/5,unzip/3,unzip3/4]).
+	          init/2,null/1,null/2,len/2,nth/3,reverse/2,
+		  foldl/4,foldl1/3,foldr/4,foldr1/3,and/1,and/2,
+		  or/1,or/2,any/2,any/3,all/2,all/3,sum/2,
+		  product/2,concat/2,concatMap/3,maximum/2,
+		  minimum/2,scanl/4,scanl1/3,scanr/4,scanr1/3,
+		  iterate/3,repeat/2,replicate/3,replicate_/3,
+		  cycle/2,take/3,drop/3,splitAt/4,takeWhile/3,
+		  dropWhile/3,span/4,break/4,elem/2,elem/3,
+		  notElem/2,notElem/3,lookup/3,zip/3,zip3/4,
+		  zipWith/4,zipWith3/5,unzip/3,unzip3/4]).
 
 id(X,X).
 const(X,_,X).
@@ -37,7 +40,7 @@ until(P,F,X,Z) :-
 % And I don't understand $!...
 
 % Mapping the empty list is an id op.
-map(_,[],[]).
+map(_,[],[]) :- !.
 map(F,[X|Xs],[Y|Ys]) :-
 	$(F,[X],Y),
 	map(F,Xs,Ys).
@@ -65,6 +68,8 @@ init([H|T],[H|X]) :- init(T,X).
 
 % Once again, pretty much redundant.
 null([]).
+null([],true) :- !.
+null(_,false).
 
 % Haskell version 'length'.  Here because of name
 % conflict with builtin
@@ -95,7 +100,50 @@ foldr(F, Start, [X|Xs], Acc) :-
 
 foldr1(F, [X|Xs], Acc) :- foldr(F, X, Xs, Acc).
 
-% TODO: Special folds.
+boolAnd(true,true,true) :- !.
+boolAnd(_,_,true).
+
+and(Xs) :- foldl1(boolAnd,Xs,true).
+and(Xs,true) :- and(Xs), !.
+and(_,false).
+
+boolOr(false,false,false) :- !.
+boolOr(_,_,true).
+
+or(Xs) :- foldl1(boolOr,Xs,true).
+or(Xs,true) :- or(Xs), !.
+or(_,false).
+
+any(P,Xs) :- map(P,Xs,Ys),or(Ys).
+any(P,Xs,true) :- any(P,Xs), !.
+any(_,_,false).
+all(P,Xs) :- map(P,Xs,Ys),and(Ys).
+all(P,Xs,true) :- all(P,Xs).
+all(_,_,false).
+
+intAdd(X,Y,Z) :- Z is X+Y.
+
+sum(Xs,S) :- foldl1(intAdd,Xs,S).
+
+intProd(X,Y,Z) :- Z is X*Y.
+
+product(Xs,S) :- foldl1(intProd,Xs,S).
+
+concat(Xss,Xs) :- foldl1(append,Xss,Xs).
+
+concatMap(F,Xss,Xs) :-
+	map(F,Xss,Yss),
+	concat(Yss,Xs).
+
+max(X,Y,X) :- X > Y, !.
+max(X,Y,Y) :- Y >= X. % Not necessary for valid arguments, but
+                      % prevents incomparables being accepted
+min(X,Y,X) :- X < Y, !.
+min(X,Y,Y) :- X >= Y.
+
+maximum(Xs,X) :- foldl1(max,Xs,X).
+minimum(Xs,X) :- foldl1(min,Xs,X).
+
 scanl(F, S, Xs, Acc) :- scanl1(F,[S|Xs],Acc).
 
 scanl1(_,[X],[X]) :- !.
@@ -160,7 +208,13 @@ break(P,[X|Xs],[X|Ys],Zs) :-
 	break(P,Xs,Ys,Zs).
 
 elem(X,Xs) :- member(X,Xs).
+elem(X,Xs,true) :- member(X,Xs), !.
+elem(_,_,false).
+
 notElem(X,Xs) :- \+member(X,Xs).
+notElem(X,Xs,false) :- member(X,Xs), !.
+notElem(_,_,true).
+
 lookup(X,Xs,V) :- member((X,V),Xs).
 
 zip([X|Xs],[Y|Ys],[(X,Y)|Zs]) :- zip(Xs,Ys,Zs).
